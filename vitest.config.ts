@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
+    environmentOptions: {
+      jsdom: { url: "http://localhost" },
+    },
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
     exclude: [".claude/worktrees/**", "node_modules/**"],

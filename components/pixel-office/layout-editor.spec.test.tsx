@@ -8,8 +8,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// sonner toast 모킹
-const mockToast = vi.fn();
+// sonner toast 모킹 (vi.hoisted: vi.mock 호이스팅 이전에 초기화)
+const mockToast = vi.hoisted(() => vi.fn());
 vi.mock("sonner", () => ({
   toast: mockToast,
   Toaster: () => null,
