@@ -12,15 +12,23 @@ export interface Agent {
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 const WS_URL = "ws://localhost:3001";
 const RECONNECT_DELAY_MS = 3_000;
 
 export function useAgentSocket(): {
   status: ConnectionStatus;
   agents: Map<string, Agent>;
+  conversationHistory: ConversationMessage[];
+  requestConversation: (agentId: string) => void;
 } {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [agents, setAgents] = useState<Map<string, Agent>>(new Map());
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
 
   // refs — 재연결 루프 안에서 최신값 참조, 불필요한 effect 재실행 방지
   const wsRef = useRef<WebSocket | null>(null);
@@ -55,7 +63,10 @@ export function useAgentSocket(): {
         return;
       }
 
-      if (msg.type === "agents") {
+      if (msg.type === "conversation-history") {
+        const payload = msg as unknown as { type: string; agentId: string; messages: ConversationMessage[] };
+        setConversationHistory(payload.messages);
+      } else if (msg.type === "agents") {
         const list = msg.data as Agent[];
         setAgents(
           new Map(list.filter((a) => a.status !== "done").map((a) => [a.id, a])),
@@ -115,5 +126,11 @@ export function useAgentSocket(): {
     };
   }, [connect, clearReconnectTimer]);
 
-  return { status, agents };
+  const requestConversation = useCallback((agentId: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "get-conversation", agentId }));
+    }
+  }, []);
+
+  return { status, agents, conversationHistory, requestConversation };
 }

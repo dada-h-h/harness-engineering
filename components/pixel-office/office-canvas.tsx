@@ -4,7 +4,7 @@ import { Loader } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 
 import type { Agent, ConnectionStatus } from "@/hooks/use-agent-socket";
-import { CHAR_SPACING, FRAME_H, FRAME_W, SPRITE_SCALE } from "./engine/characters";
+import { CHAR_SPACING, FRAME_H, FRAME_W, SPRITE_SCALE, agentPosition } from "./engine/characters";
 import { startGameLoop } from "./engine/game-loop";
 import { OfficeState } from "./engine/office-state";
 import { renderFrame } from "./engine/renderer";
@@ -17,19 +17,22 @@ const INFO_BAR_H = 24;
 interface Props {
   agents: Map<string, Agent>;
   status: ConnectionStatus;
+  onAgentClick?: (agentId: string) => void;
 }
 
-export default function OfficeCanvas({ agents, status }: Props) {
+export default function OfficeCanvas({ agents, status, onAgentClick }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const spritesRef = useRef<HTMLImageElement[]>([]);
   const officeStateRef = useRef<OfficeState>(new OfficeState());
   // agentsRef로 게임 루프가 최신 에이전트 데이터를 참조
   // rerender-use-ref-transient-values 규칙: 게임 루프 안에서만 읽는 값은 ref로 관리
   const agentsRef = useRef(agents);
+  const activeAgentsRef = useRef<Agent[]>([]);
 
   useEffect(() => {
     agentsRef.current = agents;
     officeStateRef.current.syncAgents(agents);
+    activeAgentsRef.current = [...agents.values()].filter((a) => a.status !== "done");
   }, [agents]);
 
   // 스프라이트 이미지 로드 (마운트 시 1회)
@@ -98,7 +101,25 @@ export default function OfficeCanvas({ agents, status }: Props) {
         ref={canvasRef}
         width={canvasW}
         height={canvasH}
-        style={{ display: "block", imageRendering: "pixelated" }}
+        style={{ display: "block", imageRendering: "pixelated", cursor: onAgentClick ? "pointer" : "default" }}
+        onClick={(e) => {
+          if (!onAgentClick) return;
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const rect = canvas.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const clickY = e.clientY - rect.top;
+          const agents = activeAgentsRef.current;
+          for (let i = 0; i < agents.length; i++) {
+            const { x, y } = agentPosition(i);
+            const hitW = FRAME_W * SPRITE_SCALE;
+            const hitH = FRAME_H * SPRITE_SCALE;
+            if (clickX >= x && clickX <= x + hitW && clickY >= y && clickY <= y + hitH) {
+              onAgentClick(agents[i].id);
+              break;
+            }
+          }
+        }}
       />
 
       {/* 에이전트 카운트 정보바 */}

@@ -14,7 +14,7 @@ const fileOffsets = new Map<string, number>();
 function readNewLines(filePath: string, manager: AgentManager): void {
   const agentId = path.basename(filePath, ".jsonl");
   const project = path.basename(path.dirname(filePath));
-  const agent = manager.getOrCreate(agentId, project);
+  const agent = manager.getOrCreate(agentId, project, filePath);
 
   let stat: fs.Stats;
   try {

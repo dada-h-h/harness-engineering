@@ -103,3 +103,30 @@ scenarios:
     examples:
       - input: { activeFilter: "proj-a", action: "selectAll" }
         expect: { characterCount: 2, activeFilter: null }
+
+  - id: "PIXOFF-012"
+    name: "에이전트 캐릭터 클릭 — 채팅 패널 표시"
+    given: "WebSocket이 연결된 상태에서 캔버스에 캐릭터 'agent-1'이 표시된 상태"
+    when: "에이전트 캐릭터 영역을 클릭한다"
+    then: "오른쪽에 채팅 패널이 표시되고 패널 헤더에 에이전트 ID가 나타난다"
+    examples:
+      - input: { agentId: "agent-1", action: "click" }
+        expect: { panelVisible: true, panelHeader: "agent-1" }
+
+  - id: "PIXOFF-013"
+    name: "채팅 패널 — user/assistant 대화 내용 렌더링"
+    given: "채팅 패널이 열린 상태에서 서버가 대화 내역을 전송한다"
+    when: "conversation-history 메시지가 수신된다"
+    then: "user 메시지와 assistant 메시지가 각각 구분되어 패널에 렌더링된다"
+    examples:
+      - input: { messages: [{ role: "user", content: "안녕" }, { role: "assistant", content: "반갑습니다" }] }
+        expect: { userMessageVisible: true, assistantMessageVisible: true }
+
+  - id: "PIXOFF-014"
+    name: "채팅 패널 닫기 버튼 클릭 — 패널 사라짐"
+    given: "채팅 패널이 열린 상태"
+    when: "패널의 닫기 버튼(×)을 클릭한다"
+    then: "채팅 패널이 사라진다"
+    examples:
+      - input: { panelOpen: true, action: "close" }
+        expect: { panelVisible: false }

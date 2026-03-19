@@ -23,6 +23,17 @@ wss.on("connection", (ws) => {
   console.log("[Server] Client connected");
   manager.sendCurrentState(ws);
 
+  ws.on("message", (data) => {
+    try {
+      const msg = JSON.parse(data.toString()) as { type: string; agentId?: string };
+      if (msg.type === "get-conversation" && msg.agentId) {
+        manager.sendConversationHistory(ws, msg.agentId);
+      }
+    } catch {
+      // ignore malformed messages
+    }
+  });
+
   ws.on("close", () => {
     console.log("[Server] Client disconnected");
   });

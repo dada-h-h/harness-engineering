@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAgentSocket, type Agent } from "@/hooks/use-agent-socket";
+import AgentChatPanel from "@/components/pixel-office/agent-chat-panel";
 import LayoutEditor from "@/components/pixel-office/layout-editor";
 import ProjectSidebar from "@/components/pixel-office/project-sidebar";
 
@@ -16,9 +17,18 @@ const OfficeCanvas = dynamic(
 );
 
 export default function PixelOfficePage() {
-  const { status, agents } = useAgentSocket();
+  const { status, agents, conversationHistory, requestConversation } = useAgentSocket();
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+
+  const handleAgentClick = useCallback(
+    (agentId: string) => {
+      setSelectedAgent(agentId);
+      requestConversation(agentId);
+    },
+    [requestConversation],
+  );
 
   const filteredAgents = useMemo(() => {
     if (selectedProject === null) return agents;
@@ -71,7 +81,7 @@ export default function PixelOfficePage() {
         </div>
       )}
 
-      {/* 사이드바 + 오피스 캔버스 */}
+      {/* 사이드바 + 오피스 캔버스 + 채팅 패널 */}
       <div className="flex flex-1 overflow-hidden">
         <ProjectSidebar
           agents={agents}
@@ -79,8 +89,15 @@ export default function PixelOfficePage() {
           onSelect={setSelectedProject}
         />
         <div className="flex-1 flex items-center justify-center p-4">
-          <OfficeCanvas agents={filteredAgents} status={status} />
+          <OfficeCanvas agents={filteredAgents} status={status} onAgentClick={handleAgentClick} />
         </div>
+        {selectedAgent && (
+          <AgentChatPanel
+            agentId={selectedAgent}
+            messages={conversationHistory}
+            onClose={() => setSelectedAgent(null)}
+          />
+        )}
       </div>
     </main>
   );
