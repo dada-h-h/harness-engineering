@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wireframe: Pixel Office</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  :root {
+    --w-bg: #f5f5f5;
+    --w-border: #ccc;
+    --w-text: #555;
+    --w-muted: #aaa;
+    --w-fill: #eee;
+  }
+
+  * {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    color: var(--w-text);
+  }
+
+  body { background: var(--w-bg); }
+
+  nav { position: sticky; top: 0; z-index: 40; background: var(--w-bg); border-bottom: 1px solid var(--w-border); }
+  nav button { cursor: pointer; font-size: 13px; }
+  nav button:hover { background: var(--w-fill); border-radius: 4px; }
+  nav button.active { font-weight: bold; border-bottom: 2px solid var(--w-text); }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .vp-toggle button {
+    font-size: 12px; padding: 2px 8px;
+    border: 1px solid var(--w-border); cursor: pointer; background: white;
+  }
+  .vp-toggle button:first-child { border-radius: 4px 0 0 4px; }
+  .vp-toggle button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+  .vp-toggle button.active { background: var(--w-text); color: white; }
+
+  body.viewport-mobile .screen-content {
+    max-width: 375px !important;
+    margin: 24px auto !important;
+    border: 2px solid var(--w-border);
+    border-radius: 24px;
+    min-height: 667px;
+    background: white;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 32px 16px !important;
+  }
+
+  .screen-notes {
+    background: #fffde7;
+    border-left: 3px solid #ffd54f;
+    padding: 12px 16px;
+    margin-top: 24px;
+    font-size: 13px;
+    border-radius: 0 4px 4px 0;
+  }
+  .screen-notes summary { cursor: pointer; font-weight: bold; font-size: 12px; color: #b0a050; text-transform: uppercase; letter-spacing: 0.05em; }
+  .screen-notes p { margin: 6px 0 2px; color: #777; }
+  .screen-notes ul { margin: 4px 0 0 16px; padding: 0; color: #777; }
+  .screen-notes li { margin: 2px 0; }
+
+  /* Pixel art canvas tile grid */
+  .office-canvas {
+    background-color: white;
+    background-image:
+      linear-gradient(var(--w-fill) 1px, transparent 1px),
+      linear-gradient(90deg, var(--w-fill) 1px, transparent 1px);
+    background-size: 32px 32px;
+    border: 2px solid var(--w-border);
+    border-radius: 4px;
+    position: relative;
+    min-height: 380px;
+    overflow: hidden;
+  }
+
+  /* Pixel character sprite */
+  .px-char {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    position: absolute;
+  }
+  .px-sprite {
+    width: 32px; height: 40px;
+    border: 1px solid var(--w-border);
+    background: var(--w-fill);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    overflow: hidden;
+  }
+  .px-sprite .px { background: var(--w-border); }
+  .px-sprite .px-h { background: var(--w-text); }   /* head */
+  .px-sprite .px-b { background: var(--w-border); } /* body */
+
+  .px-label { font-size: 9px; color: var(--w-muted); white-space: nowrap; }
+  .px-state {
+    font-size: 8px; padding: 1px 4px; border-radius: 2px;
+    border: 1px solid var(--w-border); background: var(--w-fill);
+    white-space: nowrap;
+  }
+  .px-state.working { border-color: var(--w-text); background: var(--w-fill); font-weight: bold; }
+  .px-state.thinking { border-color: var(--w-border); background: var(--w-fill); font-style: italic; }
+  .px-state.idle { color: var(--w-muted); }
+  .px-state.done { color: var(--w-muted); text-decoration: line-through; }
+
+  /* Furniture items */
+  .furniture {
+    position: absolute;
+    border: 1px solid var(--w-border);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: var(--w-muted);
+    text-align: center;
+  }
+
+  /* Connection badge */
+  .conn-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 99px;
+    border: 1px solid var(--w-border);
+    background: white; font-size: 11px;
+  }
+  .conn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--w-border); flex-shrink: 0; }
+  .conn-dot.online { background: var(--w-text); }
+  .conn-dot.offline { background: var(--w-muted); }
+
+  /* Page header bar */
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-bottom: 1px solid var(--w-border);
+    background: white; margin-bottom: 0;
+  }
+  .page-title { font-size: 13px; font-weight: bold; }
+
+  /* Editor palette */
+  .furniture-palette {
+    border: 1px solid var(--w-border); background: white; border-radius: 4px;
+    padding: 8px; min-width: 120px;
+  }
+  .palette-item {
+    border: 1px solid var(--w-border); background: var(--w-fill);
+    padding: 4px 8px; font-size: 10px; margin-bottom: 4px; border-radius: 2px;
+    cursor: default; display: flex; align-items: center; gap: 6px;
+  }
+  .drag-handle { color: var(--w-muted); font-size: 10px; }
+
+  /* Furniture with drag indicator */
+  .furniture.draggable { border: 1px dashed var(--w-border); cursor: default; }
+  .furniture.draggable::after {
+    content: '⋮⋮'; font-size: 8px; color: var(--w-muted);
+    position: absolute; top: 1px; right: 2px;
+  }
+</style>
+</head>
+<body class="p-0 m-0 viewport-desktop">
+
+<nav class="flex items-center gap-4 px-6 py-2">
+  <span class="text-xs" style="color:var(--w-muted)">wireframe</span>
+  <button id="nav-0" onclick="show(0)" class="px-2 py-1">0. 기본 화면</button>
+  <button id="nav-1" onclick="show(1)" class="px-2 py-1">1. 오프라인</button>
+  <button id="nav-2" onclick="show(2)" class="px-2 py-1">2. 에이전트 상태</button>
+  <button id="nav-3" onclick="show(3)" class="px-2 py-1">3. 레이아웃 에디터</button>
+  <div class="vp-toggle flex ml-auto">
+    <button id="vp-desktop" onclick="setViewport('desktop')" class="active">Desktop</button>
+    <button id="vp-mobile" onclick="setViewport('mobile')">Mobile</button>
+  </div>
+</nav>
+
+<!-- ─────────────────────────────────────────────────── -->
+<!-- SCREEN 0: 기본 화면 (연결됨, 에이전트 3명 작업 중) -->
+<!-- ─────────────────────────────────────────────────── -->
+<div id="screen-0" class="screen">
+  <div class="screen-content @container max-w-6xl mx-auto p-6">
+
+    <h2 class="text-lg font-bold mb-5" style="color:var(--w-muted); border-bottom:1px solid var(--w-border); padding-bottom:8px;">
+      기본 화면 — Pixel Office (연결됨)
+    </h2>
+
+    <!-- Page chrome -->
+    <div class="border rounded-lg overflow-hidden" style="border-color:var(--w-border);">
+
+      <!-- App header bar -->
+      <div class="page-header">
+        <div class="flex items-center gap-2">
+          <div style="width:16px;height:16px;background:var(--w-fill);border:1px solid var(--w-border);border-radius:2px;display:inline-flex;align-items:center;justify-content:center;">
+            <span style="font-size:8px;">P</span>
+          </div>
+          <span class="page-title">Pixel Office</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="conn-badge">
+            <span class="conn-dot online"></span>
+            <span>연결됨</span>
+          </span>
+          <button class="border rounded px-2 py-1 text-xs" style="border-color:var(--w-border);background:var(--w-fill)" disabled>레이아웃 편집</button>
+        </div>
+      </div>
+
+      <!-- Office Canvas -->
+      <div class="p-4" style="background:var(--w-bg);">
+        <div class="office-canvas" style="height:400px;">
+
+          <!-- Furniture items -->
+          <div class="furniture" style="left:40px;top:30px;width:56px;height:32px;">책상1</div>
+          <div class="furniture" style="left:120px;top:30px;width:56px;height:32px;">책상2</div>
+          <div class="furniture" style="left:210px;top:30px;width:56px;height:32px;">책상3</div>
+
+          <div class="furniture" style="left:40px;top:180px;width:100px;height:48px;">회의테이블</div>
+          <div class="furniture" style="left:320px;top:40px;width:40px;height:56px;">책장</div>
+          <div class="furniture" style="left:380px;top:40px;width:28px;height:28px;">화분</div>
+          <div class="furniture" style="left:200px;top:220px;width:48px;height:48px;">소파</div>
+
+          <!-- Characters -->
+          <!-- agent-1: working, at desk1 -->
+          <div class="px-char" style="left:46px;top:70px;">
+            <div class="px-sprite">
+              <!-- row1: head -->
+              <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+              <!-- row2: head -->
+              <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+              <!-- row3: body -->
+              <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+              <!-- row4: body -->
+              <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+              <!-- row5: legs -->
+              <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+            </div>
+            <span class="px-label">agent-1</span>
+            <span class="px-state working">working</span>
+          </div>
+
+          <!-- agent-2: thinking, at desk2 -->
+          <div class="px-char" style="left:126px;top:70px;">
+            <div class="px-sprite">
+              <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+              <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+              <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+              <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+              <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+            </div>
+            <span class="px-label">agent-2</span>
+            <span class="px-state thinking">thinking...</span>
+          </div>
+
+          <!-- agent-3: idle, at desk3 -->
+          <div class="px-char" style="left:216px;top:70px;">
+            <div class="px-sprite">
+              <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+              <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+              <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+              <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+              <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+            </div>
+            <span class="px-label">agent-3</span>
+            <span class="px-state idle">idle</span>
+          </div>
+
+          <!-- ws://localhost:3001 label -->
+          <div style="position:absolute;bottom:8px;right:8px;font-size:9px;color:var(--w-muted);">ws://localhost:3001</div>
+        </div>
+
+        <!-- Agent count info bar -->
+        <div class="flex items-center gap-4 mt-2 px-1">
+          <span class="text-xs" style="color:var(--w-muted);">에이전트 3명 활성</span>
+          <span class="text-xs" style="color:var(--w-muted);">|</span>
+          <span class="text-xs" style="color:var(--w-muted);">
+            <span class="px-state working" style="position:static;font-size:9px;">working</span> 1 &nbsp;
+            <span class="px-state thinking" style="position:static;font-size:9px;">thinking</span> 1 &nbsp;
+            <span class="px-state idle" style="position:static;font-size:9px;">idle</span> 1
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-notes">
+      <details open>
+        <summary>Notes</summary>
+        <p>평상시 연결된 상태의 Pixel Office 기본 화면.</p>
+        <ul>
+          <li>상단 헤더: 앱 타이틀(왼쪽) + 연결 상태 배지 + 레이아웃 편집 버튼(오른쪽)</li>
+          <li>캔버스: 32px 그리드 타일 위에 가구와 캐릭터 배치. 픽셀 스프라이트 스타일로 표현</li>
+          <li>캐릭터 아래에 에이전트 이름(라벨)과 현재 상태 배지(working/thinking/idle)가 표시됨</li>
+          <li>캔버스 하단에 연결된 WebSocket 주소와 활성 에이전트 수 요약 표시</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────── -->
+<!-- SCREEN 1: 오프라인 (PIXOFF-002, PIXOFF-003)        -->
+<!-- ─────────────────────────────────────────────────── -->
+<div id="screen-1" class="screen">
+  <div class="screen-content @container max-w-6xl mx-auto p-6">
+
+    <h2 class="text-lg font-bold mb-5" style="color:var(--w-muted); border-bottom:1px solid var(--w-border); padding-bottom:8px;">
+      1. 오프라인 / 재연결 — PIXOFF-002, PIXOFF-003
+    </h2>
+
+    <div class="grid gap-6" style="grid-template-columns: 1fr 1fr;">
+
+      <!-- 왼쪽: 오프라인 상태 (PIXOFF-002) -->
+      <div>
+        <p class="text-xs font-bold mb-2" style="color:var(--w-muted);">PIXOFF-002 — 서버 미실행</p>
+        <div class="border rounded-lg overflow-hidden" style="border-color:var(--w-border);">
+          <div class="page-header">
+            <div class="flex items-center gap-2">
+              <div style="width:16px;height:16px;background:var(--w-fill);border:1px solid var(--w-border);border-radius:2px;display:inline-flex;align-items:center;justify-content:center;">
+                <span style="font-size:8px;">P</span>
+              </div>
+              <span class="page-title">Pixel Office</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="conn-badge">
+                <span class="conn-dot offline"></span>
+                <span>서버 연결 끊김</span>
+              </span>
+              <button class="border rounded px-2 py-1 text-xs" style="border-color:var(--w-border);background:var(--w-fill)" disabled>레이아웃 편집</button>
+            </div>
+          </div>
+
+          <div class="p-4" style="background:var(--w-bg);">
+            <div class="office-canvas" style="height:240px;">
+              <!-- Empty canvas with furniture but no characters -->
+              <div class="furniture" style="left:40px;top:30px;width:56px;height:32px;">책상1</div>
+              <div class="furniture" style="left:120px;top:30px;width:56px;height:32px;">책상2</div>
+              <div class="furniture" style="left:210px;top:30px;width:56px;height:32px;">책상3</div>
+              <div class="furniture" style="left:40px;top:130px;width:100px;height:48px;">회의테이블</div>
+
+              <!-- Reconnecting indicator -->
+              <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;">
+                <i data-lucide="loader" style="width:12px;height:12px;color:var(--w-muted);"></i>
+                <span style="font-size:9px;color:var(--w-muted);">재연결 시도 중... (3s)</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 mt-2 px-1">
+              <span class="text-xs" style="color:var(--w-muted);">에이전트 0명 활성</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 오른쪽: 재연결 성공 (PIXOFF-003) -->
+      <div>
+        <p class="text-xs font-bold mb-2" style="color:var(--w-muted);">PIXOFF-003 — 재연결 성공</p>
+        <div class="border rounded-lg overflow-hidden" style="border-color:var(--w-border);">
+          <div class="page-header">
+            <div class="flex items-center gap-2">
+              <div style="width:16px;height:16px;background:var(--w-fill);border:1px solid var(--w-border);border-radius:2px;display:inline-flex;align-items:center;justify-content:center;">
+                <span style="font-size:8px;">P</span>
+              </div>
+              <span class="page-title">Pixel Office</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="conn-badge">
+                <span class="conn-dot online"></span>
+                <span>연결됨</span>
+              </span>
+              <button class="border rounded px-2 py-1 text-xs" style="border-color:var(--w-border);background:var(--w-fill)" disabled>레이아웃 편집</button>
+            </div>
+          </div>
+
+          <div class="p-4" style="background:var(--w-bg);">
+            <div class="office-canvas" style="height:240px;">
+              <div class="furniture" style="left:40px;top:30px;width:56px;height:32px;">책상1</div>
+              <div class="furniture" style="left:120px;top:30px;width:56px;height:32px;">책상2</div>
+              <div class="furniture" style="left:210px;top:30px;width:56px;height:32px;">책상3</div>
+              <div class="furniture" style="left:40px;top:130px;width:100px;height:48px;">회의테이블</div>
+
+              <!-- Character re-appeared after reconnect -->
+              <div class="px-char" style="left:46px;top:70px;">
+                <div class="px-sprite">
+                  <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+                  <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+                  <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+                  <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+                  <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+                </div>
+                <span class="px-label">agent-1</span>
+                <span class="px-state working">working</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 mt-2 px-1">
+              <span class="text-xs" style="color:var(--w-muted);">에이전트 1명 활성</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상태 배지 상태 전환 다이어그램 -->
+    <div class="mt-4 border rounded p-4" style="border-color:var(--w-border);background:white;">
+      <p class="text-xs font-bold mb-3" style="color:var(--w-muted);">배지 상태 전환</p>
+      <div class="flex items-center gap-3">
+        <span class="conn-badge"><span class="conn-dot online"></span><span>연결됨</span></span>
+        <span style="font-size:12px;color:var(--w-muted);">→ 서버 종료 →</span>
+        <span class="conn-badge"><span class="conn-dot offline"></span><span>서버 연결 끊김</span></span>
+        <span style="font-size:12px;color:var(--w-muted);">→ 자동 재연결 성공 →</span>
+        <span class="conn-badge"><span class="conn-dot online"></span><span>연결됨</span></span>
+      </div>
+    </div>
+
+    <div class="screen-notes">
+      <details open>
+        <summary>Notes — PIXOFF-002, PIXOFF-003</summary>
+        <p>WebSocket 서버 연결 상태에 따른 배지 표시 및 캔버스 변화.</p>
+        <ul>
+          <li>PIXOFF-002: 서버 미실행 시 배지 = "서버 연결 끊김" + 캐릭터 0명 + 재연결 스피너</li>
+          <li>PIXOFF-003: 재연결 성공 시 배지 → "연결됨"으로 전환, 캐릭터 재등장</li>
+          <li>캔버스 자체(가구)는 연결 상태와 무관하게 항상 표시됨</li>
+          <li>재연결은 자동으로 시도됨. 별도 버튼 없음</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────── -->
+<!-- SCREEN 2: 에이전트 상태 변화 (PIXOFF-001, 004~007) -->
+<!-- ─────────────────────────────────────────────────── -->
+<div id="screen-2" class="screen">
+  <div class="screen-content @container max-w-6xl mx-auto p-6">
+
+    <h2 class="text-lg font-bold mb-5" style="color:var(--w-muted); border-bottom:1px solid var(--w-border); padding-bottom:8px;">
+      2. 에이전트 상태 변화 — PIXOFF-001, PIXOFF-004~007
+    </h2>
+
+    <!-- 4가지 상태 나란히 표시 -->
+    <div class="grid gap-4" style="grid-template-columns: repeat(4, 1fr);">
+
+      <!-- idle (PIXOFF-006) -->
+      <div class="border rounded-lg p-4 flex flex-col items-center gap-3" style="border-color:var(--w-border);background:white;">
+        <p class="text-xs font-bold" style="color:var(--w-muted);">PIXOFF-006 — idle</p>
+        <div class="px-sprite" style="width:48px;height:60px;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);">
+          <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+          <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+          <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+          <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+          <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+        </div>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xs font-bold">agent-1</span>
+          <span class="px-state idle" style="position:static;font-size:10px;padding:2px 8px;">idle</span>
+        </div>
+        <div class="w-full border-t pt-2" style="border-color:var(--w-fill);">
+          <p class="text-xs" style="color:var(--w-muted);">data-state="idle"</p>
+          <p class="text-xs" style="color:var(--w-muted);">제자리 대기 애니메이션</p>
+        </div>
+      </div>
+
+      <!-- working (PIXOFF-004) -->
+      <div class="border rounded-lg p-4 flex flex-col items-center gap-3" style="border-color:var(--w-text);background:white;">
+        <p class="text-xs font-bold" style="color:var(--w-muted);">PIXOFF-004 — working</p>
+        <div class="px-sprite" style="width:48px;height:60px;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);">
+          <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+          <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+          <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+          <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+          <div class="px-b"></div><div class="px-b"></div><div></div><div></div>
+        </div>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xs font-bold">agent-1</span>
+          <span class="px-state working" style="position:static;font-size:10px;padding:2px 8px;">working</span>
+        </div>
+        <div class="w-full border-t pt-2" style="border-color:var(--w-fill);">
+          <p class="text-xs" style="color:var(--w-muted);">data-state="working"</p>
+          <p class="text-xs" style="color:var(--w-muted);">빠른 이동 애니메이션</p>
+        </div>
+      </div>
+
+      <!-- thinking (PIXOFF-005) -->
+      <div class="border rounded-lg p-4 flex flex-col items-center gap-3" style="border-color:var(--w-border);background:white;">
+        <p class="text-xs font-bold" style="color:var(--w-muted);">PIXOFF-005 — thinking</p>
+        <div style="position:relative;">
+          <div class="px-sprite" style="width:48px;height:60px;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);">
+            <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+            <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+            <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+            <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+            <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+          </div>
+          <!-- Thought bubble -->
+          <div style="position:absolute;top:-16px;right:-10px;font-size:10px;color:var(--w-muted);">💭</div>
+        </div>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xs font-bold">agent-1</span>
+          <span class="px-state thinking" style="position:static;font-size:10px;padding:2px 8px;">thinking...</span>
+        </div>
+        <div class="w-full border-t pt-2" style="border-color:var(--w-fill);">
+          <p class="text-xs" style="color:var(--w-muted);">data-state="thinking"</p>
+          <p class="text-xs" style="color:var(--w-muted);">느린 흔들림 애니메이션</p>
+        </div>
+      </div>
+
+      <!-- done (PIXOFF-007) -->
+      <div class="border rounded-lg p-4 flex flex-col items-center gap-3" style="border-color:var(--w-border);background:white;opacity:0.45;">
+        <p class="text-xs font-bold" style="color:var(--w-muted);">PIXOFF-007 — done</p>
+        <div class="px-sprite" style="width:48px;height:60px;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);">
+          <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+          <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+          <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+          <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+          <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+        </div>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xs font-bold" style="text-decoration:line-through;">agent-1</span>
+          <span class="px-state done" style="position:static;font-size:10px;padding:2px 8px;">done</span>
+        </div>
+        <div class="w-full border-t pt-2" style="border-color:var(--w-fill);">
+          <p class="text-xs" style="color:var(--w-muted);">페이드 아웃 후 제거</p>
+          <p class="text-xs" style="color:var(--w-muted);">캔버스에서 사라짐</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PIXOFF-001: 연결 후 에이전트 등장 흐름 -->
+    <div class="mt-6 border rounded p-4" style="border-color:var(--w-border);background:white;">
+      <p class="text-xs font-bold mb-3" style="color:var(--w-muted);">PIXOFF-001 — 연결 후 에이전트 등장 흐름</p>
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- step 1 -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="border rounded p-2 text-xs" style="border-color:var(--w-border);background:var(--w-fill);">
+            <span class="conn-badge"><span class="conn-dot offline"></span><span>서버 연결 끊김</span></span>
+          </div>
+          <span class="text-xs" style="color:var(--w-muted);">연결 전</span>
+        </div>
+        <i data-lucide="chevron-right" style="width:14px;height:14px;color:var(--w-muted);flex-shrink:0;"></i>
+        <!-- step 2 -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="border rounded p-2 text-xs" style="border-color:var(--w-border);background:var(--w-fill);">
+            <span class="conn-badge"><span class="conn-dot online"></span><span>연결됨</span></span>
+          </div>
+          <span class="text-xs" style="color:var(--w-muted);">ws 연결 확립</span>
+        </div>
+        <i data-lucide="chevron-right" style="width:14px;height:14px;color:var(--w-muted);flex-shrink:0;"></i>
+        <!-- step 3: 1 agent -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="border rounded p-2" style="border-color:var(--w-border);background:var(--w-fill);">
+            <div class="flex gap-2">
+              <div class="flex flex-col items-center gap-1">
+                <div class="px-sprite" style="width:20px;height:24px;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);">
+                  <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+                  <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+                  <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+                  <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+                  <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+                </div>
+                <span style="font-size:7px;color:var(--w-muted);">agent-1</span>
+              </div>
+            </div>
+          </div>
+          <span class="text-xs" style="color:var(--w-muted);">캐릭터 1명 등장</span>
+        </div>
+        <i data-lucide="chevron-right" style="width:14px;height:14px;color:var(--w-muted);flex-shrink:0;"></i>
+        <!-- step 4: 3 agents -->
+        <div class="flex flex-col items-center gap-1">
+          <div class="border rounded p-2" style="border-color:var(--w-border);background:var(--w-fill);">
+            <div class="flex gap-1">
+              <div class="flex flex-col items-center gap-1">
+                <div class="px-sprite" style="width:16px;height:20px;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);">
+                  <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+                  <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+                  <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+                  <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+                  <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+                </div>
+              </div>
+              <div class="flex flex-col items-center gap-1">
+                <div class="px-sprite" style="width:16px;height:20px;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);">
+                  <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+                  <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+                  <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+                  <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+                  <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+                </div>
+              </div>
+              <div class="flex flex-col items-center gap-1">
+                <div class="px-sprite" style="width:16px;height:20px;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);">
+                  <div></div><div class="px-h"></div><div class="px-h"></div><div></div>
+                  <div class="px-h"></div><div class="px-h"></div><div class="px-h"></div><div class="px-h"></div>
+                  <div></div><div class="px-b"></div><div class="px-b"></div><div></div>
+                  <div class="px-b"></div><div class="px-b"></div><div class="px-b"></div><div class="px-b"></div>
+                  <div class="px-b"></div><div></div><div></div><div class="px-b"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <span class="text-xs" style="color:var(--w-muted);">캐릭터 3명 등장</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-notes">
+      <details open>
+        <summary>Notes — PIXOFF-001, PIXOFF-004~007</summary>
+        <p>에이전트 상태에 따른 캐릭터 시각적 표현.</p>
+        <ul>
+          <li>PIXOFF-004 working: 캐릭터 강조 보더(--w-text), 빠른 이동 애니메이션</li>
+          <li>PIXOFF-005 thinking: 말풍선 표시, 느린 흔들림 애니메이션</li>
+          <li>PIXOFF-006 idle: 기본 스타일, 제자리 대기 애니메이션</li>
+          <li>PIXOFF-007 done: 페이드 아웃(opacity 0→ 제거). 와이어프레임에서는 0.45 opacity로 표현</li>
+          <li>data-state 속성은 캔버스 내 캐릭터 요소에 설정됨 (테스트 셀렉터 기준)</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────── -->
+<!-- SCREEN 3: 레이아웃 에디터 (PIXOFF-008, PIXOFF-009) -->
+<!-- ─────────────────────────────────────────────────── -->
+<div id="screen-3" class="screen">
+  <div class="screen-content @container max-w-6xl mx-auto p-6">
+
+    <h2 class="text-lg font-bold mb-5" style="color:var(--w-muted); border-bottom:1px solid var(--w-border); padding-bottom:8px;">
+      3. 레이아웃 에디터 — PIXOFF-008, PIXOFF-009
+    </h2>
+
+    <!-- Editor mode page -->
+    <div class="border rounded-lg overflow-hidden" style="border-color:var(--w-border);">
+
+      <!-- App header bar (edit mode) -->
+      <div class="page-header" style="background:#fffde7;border-bottom:2px solid #ffd54f;">
+        <div class="flex items-center gap-2">
+          <div style="width:16px;height:16px;background:var(--w-fill);border:1px solid var(--w-border);border-radius:2px;display:inline-flex;align-items:center;justify-content:center;">
+            <span style="font-size:8px;">P</span>
+          </div>
+          <span class="page-title">Pixel Office</span>
+          <span class="text-xs px-2 py-0.5 rounded" style="background:#ffd54f;color:#7a6000;border:1px solid #ffc107;">편집 모드</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="border rounded px-2 py-1 text-xs" style="border-color:var(--w-border);background:var(--w-fill)" disabled>취소</button>
+          <button class="border rounded px-2 py-1 text-xs font-bold" style="border-color:var(--w-text);background:var(--w-fill)" disabled>레이아웃 저장</button>
+        </div>
+      </div>
+
+      <div class="flex" style="background:var(--w-bg);">
+
+        <!-- Furniture palette (left sidebar) -->
+        <div class="p-3" style="width:140px;flex-shrink:0;border-right:1px solid var(--w-border);background:white;">
+          <p class="text-xs font-bold mb-2" style="color:var(--w-muted);">가구 팔레트</p>
+          <div class="furniture-palette" style="border:none;padding:0;">
+            <div class="palette-item"><span class="drag-handle">⠿</span>책상</div>
+            <div class="palette-item"><span class="drag-handle">⠿</span>의자</div>
+            <div class="palette-item"><span class="drag-handle">⠿</span>소파</div>
+            <div class="palette-item"><span class="drag-handle">⠿</span>회의테이블</div>
+            <div class="palette-item"><span class="drag-handle">⠿</span>책장</div>
+            <div class="palette-item"><span class="drag-handle">⠿</span>화분</div>
+            <div class="palette-item"><span class="drag-handle">⠿</span>복사기</div>
+            <div class="palette-item"><span class="drag-handle">⠿</span>냉장고</div>
+          </div>
+        </div>
+
+        <!-- Canvas (editor mode) -->
+        <div class="flex-1 p-4">
+          <div class="office-canvas" style="height:340px;">
+
+            <!-- Furniture with drag handles -->
+            <div class="furniture draggable" style="left:40px;top:30px;width:56px;height:32px;">책상1</div>
+            <div class="furniture draggable" style="left:120px;top:30px;width:56px;height:32px;">책상2</div>
+            <div class="furniture draggable" style="left:210px;top:30px;width:56px;height:32px;">책상3</div>
+            <div class="furniture draggable" style="left:40px;top:180px;width:100px;height:48px;">회의테이블</div>
+            <div class="furniture draggable" style="left:320px;top:40px;width:40px;height:56px;">책장</div>
+            <div class="furniture draggable" style="left:380px;top:40px;width:28px;height:28px;">화분</div>
+
+            <!-- "Currently dragging" indicator -->
+            <div class="furniture" style="left:170px;top:160px;width:48px;height:48px;border:2px dashed var(--w-text);background:rgba(0,0,0,0.04);">소파</div>
+
+            <!-- Grid label -->
+            <div style="position:absolute;bottom:8px;right:8px;font-size:9px;color:var(--w-muted);">편집 모드 — 드래그로 가구 배치</div>
+          </div>
+
+          <!-- PIXOFF-008: 저장됨 토스트 표시 영역 -->
+          <div class="mt-3">
+            <!-- Toast (inline display in wireframe) -->
+            <!-- 실제 위치: 화면 하단 우측 고정 -->
+            <div class="border rounded-lg px-4 py-3 text-sm inline-flex items-center gap-2" style="border-color:var(--w-border); background:white; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+              <i data-lucide="check" style="width:14px;height:14px;"></i>
+              <span>저장됨</span>
+              <span style="color:var(--w-muted);font-size:11px;">(pixel-office-layout)</span>
+            </div>
+            <span class="text-xs ml-2" style="color:var(--w-muted);">← '레이아웃 저장' 클릭 후 표시 (PIXOFF-008)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PIXOFF-009: 재로드 복원 비교 -->
+    <div class="mt-6">
+      <p class="text-xs font-bold mb-3" style="color:var(--w-muted);">PIXOFF-009 — 페이지 재로드 후 레이아웃 복원</p>
+      <div class="grid gap-4" style="grid-template-columns:1fr auto 1fr;">
+
+        <!-- Before: 저장된 레이아웃 -->
+        <div class="border rounded p-3" style="border-color:var(--w-border);background:white;">
+          <p class="text-xs mb-2" style="color:var(--w-muted);">저장 시 (localStorage: pixel-office-layout)</p>
+          <div class="office-canvas" style="height:120px;">
+            <div class="furniture" style="left:20px;top:15px;width:44px;height:24px;font-size:7px;">책상1</div>
+            <div class="furniture" style="left:90px;top:15px;width:44px;height:24px;font-size:7px;">책상2</div>
+            <div class="furniture" style="left:20px;top:70px;width:72px;height:32px;font-size:7px;">회의테이블</div>
+          </div>
+          <p class="text-xs mt-1" style="color:var(--w-muted);">가구 3개 배치</p>
+        </div>
+
+        <div class="flex items-center justify-center">
+          <div class="flex flex-col items-center gap-1">
+            <i data-lucide="refresh-cw" style="width:16px;height:16px;color:var(--w-muted);"></i>
+            <span class="text-xs" style="color:var(--w-muted);">재로드</span>
+          </div>
+        </div>
+
+        <!-- After: 복원된 레이아웃 -->
+        <div class="border rounded p-3" style="border-color:var(--w-border);background:white;">
+          <p class="text-xs mb-2" style="color:var(--w-muted);">재로드 후 (복원 완료)</p>
+          <div class="office-canvas" style="height:120px;">
+            <div class="furniture" style="left:20px;top:15px;width:44px;height:24px;font-size:7px;">책상1</div>
+            <div class="furniture" style="left:90px;top:15px;width:44px;height:24px;font-size:7px;">책상2</div>
+            <div class="furniture" style="left:20px;top:70px;width:72px;height:32px;font-size:7px;">회의테이블</div>
+          </div>
+          <p class="text-xs mt-1" style="color:var(--w-muted);">동일 위치 3개 복원 ✓</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-notes">
+      <details open>
+        <summary>Notes — PIXOFF-008, PIXOFF-009</summary>
+        <p>레이아웃 에디터 진입 시 헤더가 편집 모드로 전환되고 왼쪽에 가구 팔레트가 표시됨.</p>
+        <ul>
+          <li>PIXOFF-008: '레이아웃 저장' 버튼 클릭 → localStorage 저장 → "저장됨" 토스트(하단 우측 고정)</li>
+          <li>PIXOFF-009: 재로드 시 localStorage → pixel-office-layout 로드 → 동일 위치에 가구 렌더링</li>
+          <li>localStorage 없을 시(null) → 기본 레이아웃(빈 오피스 또는 초기 배치)으로 표시</li>
+          <li>캐릭터는 에디터 모드에서 숨김(레이아웃 편집에 방해되지 않도록)</li>
+          <li>가구 팔레트에서 캔버스로 드래그&드롭으로 배치. 배치된 가구는 ⠿ 핸들로 이동 가능</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+var currentScreen = 0;
+var screenIds = [];
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('nav button[id^="nav-"]').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('nav-' + id).classList.add('active');
+  currentScreen = screenIds.indexOf(id);
+}
+
+function setViewport(mode) {
+  document.body.classList.remove('viewport-mobile', 'viewport-desktop');
+  document.body.classList.add('viewport-' + mode);
+  document.querySelectorAll('.vp-toggle button').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('vp-' + mode).classList.add('active');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('nav button[id^="nav-"]').forEach(function(b) {
+    screenIds.push(parseInt(b.id.replace('nav-', '')));
+  });
+  var first = document.querySelector('nav button[id^="nav-"]');
+  if (first) first.click();
+  if (typeof lucide !== 'undefined') { lucide.createIcons(); }
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' && currentScreen < screenIds.length - 1) {
+    show(screenIds[currentScreen + 1]);
+  } else if (e.key === 'ArrowLeft' && currentScreen > 0) {
+    show(screenIds[currentScreen - 1]);
+  }
+});
+</script>
+
+<script>
+(function() {
+  var root = document.createElement('div');
+  root.id = 'wf-feedback-root';
+  document.body.appendChild(root);
+  var shadow = root.attachShadow({ mode: 'open' });
+
+  shadow.innerHTML = '<style>' +
+    ':host { all: initial; }' +
+    '.wf-toggle { position: fixed; bottom: 20px; right: 20px; z-index: 99999; ' +
+      'width: 44px; height: 44px; border-radius: 12px; border: 1px solid hsl(214.3 31.8% 91.4%); ' +
+      'background: hsl(0 0% 100%); cursor: pointer; display: flex; align-items: center; ' +
+      'justify-content: center; font-family: sans-serif; color: hsl(215.4 16.3% 46.9%); ' +
+      'box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06); ' +
+      'transition: all 0.15s ease; }' +
+    '.wf-toggle:hover { background: hsl(210 40% 96.1%); color: hsl(222.2 47.4% 11.2%); }' +
+    '.wf-toggle.active { background: hsl(222.2 47.4% 11.2%); color: hsl(210 40% 98%); ' +
+      'border-color: hsl(222.2 47.4% 11.2%); }' +
+    '.wf-highlight { position: absolute; background: rgba(59,130,246,0.15); ' +
+      'border: 2px solid rgba(59,130,246,0.5); pointer-events: none; z-index: 99990; ' +
+      'border-radius: 2px; transition: all 0.1s; }' +
+    '.wf-toast { position: fixed; bottom: 72px; right: 20px; z-index: 99999; ' +
+      'background: hsl(222.2 47.4% 11.2%); color: #fff; font-family: sans-serif; ' +
+      'font-size: 13px; padding: 8px 16px; border-radius: 8px; ' +
+      'box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0; ' +
+      'transition: opacity 0.2s ease; pointer-events: none; max-width: 320px; ' +
+      'word-break: break-all; }' +
+    '.wf-toast.visible { opacity: 1; }' +
+  '</style>' +
+  '<div class="wf-toggle" id="wf-toggle-btn" title="Feedback mode">' +
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z"/>' +
+    '</svg>' +
+  '</div>' +
+  '<div class="wf-highlight" id="wf-highlight" style="display:none"></div>' +
+  '<div class="wf-toast" id="wf-toast"></div>';
+
+  var toggleBtn = shadow.getElementById('wf-toggle-btn');
+  var highlightEl = shadow.getElementById('wf-highlight');
+  var toastEl = shadow.getElementById('wf-toast');
+  var feedbackMode = false;
+  var toastTimer;
+
+  function showToast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add('visible');
+    clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function() { toastEl.classList.remove('visible'); }, 2000);
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() { showToast('Copied: ' + text); }, function() { fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showToast('Copied: ' + text); } catch (_) { showToast('Copy failed'); }
+    document.body.removeChild(ta);
+  }
+
+  toggleBtn.addEventListener('click', function() {
+    feedbackMode = !feedbackMode;
+    toggleBtn.classList.toggle('active', feedbackMode);
+    if (!feedbackMode) highlightEl.style.display = 'none';
+  });
+
+  function buildSelector(el) {
+    var parts = []; var cur = el;
+    while (cur && cur !== document.body && cur !== document.documentElement) {
+      if (cur.id) { parts.unshift('#' + cur.id); break; }
+      var tag = cur.tagName; var parent = cur.parentElement;
+      if (parent) { var siblings = Array.from(parent.children); var idx = siblings.indexOf(cur) + 1; parts.unshift(tag + ':nth-child(' + idx + ')'); }
+      else { parts.unshift(tag); }
+      cur = parent;
+    }
+    return parts.join(' > ');
+  }
+
+  function getScreenId() {
+    var active = document.querySelector('.screen.active');
+    return active ? active.id.replace('screen-', '') : 'unknown';
+  }
+
+  document.addEventListener('mousemove', function(e) {
+    if (!feedbackMode) return;
+    var target = e.target;
+    if (!target || target.closest('#wf-feedback-root') || target.closest('nav')) { highlightEl.style.display = 'none'; return; }
+    var screen = target.closest('.screen.active');
+    if (!screen) { highlightEl.style.display = 'none'; return; }
+    var rect = target.getBoundingClientRect();
+    highlightEl.style.display = 'block';
+    highlightEl.style.top = (rect.top + window.scrollY) + 'px';
+    highlightEl.style.left = (rect.left + window.scrollX) + 'px';
+    highlightEl.style.width = rect.width + 'px';
+    highlightEl.style.height = rect.height + 'px';
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!feedbackMode) return;
+    var target = e.target;
+    if (!target || target.closest('#wf-feedback-root')) return;
+    if (target.closest('nav')) return;
+    var screen = target.closest('.screen.active');
+    if (!screen) return;
+    e.preventDefault(); e.stopPropagation();
+    var selector = buildSelector(target);
+    var path = '[screen-' + getScreenId() + ' > ' + selector + ']';
+    copyToClipboard(path);
+  }, true);
+})();
+</script>
+</body>
+</html>

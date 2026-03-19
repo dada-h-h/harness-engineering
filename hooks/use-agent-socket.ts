@@ -7,6 +7,7 @@ export type AgentStatus = "working" | "thinking" | "idle" | "done";
 export interface Agent {
   id: string;
   status: AgentStatus;
+  project: string;
 }
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
@@ -60,13 +61,17 @@ export function useAgentSocket(): {
           new Map(list.filter((a) => a.status !== "done").map((a) => [a.id, a])),
         );
       } else if (msg.type === "agent-update") {
-        const update = msg.data as { id: string; status: AgentStatus };
+        const update = msg.data as { id: string; status: AgentStatus; project?: string };
         setAgents((prev) => {
           const next = new Map(prev);
           if (update.status === "done") {
             next.delete(update.id);
           } else {
-            next.set(update.id, { id: update.id, status: update.status });
+            next.set(update.id, {
+              id: update.id,
+              status: update.status,
+              project: update.project ?? prev.get(update.id)?.project ?? "",
+            });
           }
           return next;
         });

@@ -12,10 +12,12 @@ import {
 export interface Agent {
   id: string;
   status: AgentStatus;
+  project: string;
 }
 
 export class AgentManager {
   private agents = new Map<string, ServerAgentState>();
+  private projectMap = new Map<string, string>();
   private wss: WebSocketServer;
 
   constructor(wss: WebSocketServer) {
@@ -23,8 +25,9 @@ export class AgentManager {
   }
 
   /** 에이전트 추가 또는 기존 에이전트 반환 */
-  getOrCreate(id: string): ServerAgentState {
+  getOrCreate(id: string, project = ""): ServerAgentState {
     if (!this.agents.has(id)) {
+      this.projectMap.set(id, project);
       const agent = createAgentState(id);
       this.agents.set(id, agent);
       this.broadcast({ type: "agents", data: this.getAgentList() });
@@ -38,7 +41,7 @@ export class AgentManager {
     processLine(agent, line, (agentId, status) => {
       this.broadcast({
         type: "agent-update",
-        data: { id: agentId, status },
+        data: { id: agentId, status, project: this.projectMap.get(agentId) ?? "" },
       });
     });
   }
@@ -51,9 +54,10 @@ export class AgentManager {
       clearTimeout(agent.idleTimer);
     }
     this.agents.delete(id);
+    this.projectMap.delete(id);
     this.broadcast({
       type: "agent-update",
-      data: { id, status: "done" as AgentStatus },
+      data: { id, status: "done" as AgentStatus, project: "" },
     });
   }
 
@@ -62,6 +66,7 @@ export class AgentManager {
     return [...this.agents.values()].map((a) => ({
       id: a.id,
       status: a.status,
+      project: this.projectMap.get(a.id) ?? "",
     }));
   }
 

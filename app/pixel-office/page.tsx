@@ -1,12 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAgentSocket } from "@/hooks/use-agent-socket";
+import { useAgentSocket, type Agent } from "@/hooks/use-agent-socket";
 import LayoutEditor from "@/components/pixel-office/layout-editor";
+import ProjectSidebar from "@/components/pixel-office/project-sidebar";
 
 // Canvas는 브라우저 전용 API → SSR 비활성 (bundle-dynamic-imports 규칙)
 const OfficeCanvas = dynamic(
@@ -17,6 +18,16 @@ const OfficeCanvas = dynamic(
 export default function PixelOfficePage() {
   const { status, agents } = useAgentSocket();
   const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+
+  const filteredAgents = useMemo(() => {
+    if (selectedProject === null) return agents;
+    const filtered = new Map<string, Agent>();
+    for (const [id, agent] of agents) {
+      if (agent.project === selectedProject) filtered.set(id, agent);
+    }
+    return filtered;
+  }, [agents, selectedProject]);
 
   const isConnected = status === "connected";
 
@@ -60,9 +71,16 @@ export default function PixelOfficePage() {
         </div>
       )}
 
-      {/* 오피스 캔버스 */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <OfficeCanvas agents={agents} status={status} />
+      {/* 사이드바 + 오피스 캔버스 */}
+      <div className="flex flex-1 overflow-hidden">
+        <ProjectSidebar
+          agents={agents}
+          selectedProject={selectedProject}
+          onSelect={setSelectedProject}
+        />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <OfficeCanvas agents={filteredAgents} status={status} />
+        </div>
       </div>
     </main>
   );

@@ -13,7 +13,8 @@ const fileOffsets = new Map<string, number>();
 /** 파일에서 새로운 줄을 읽어 AgentManager로 전달 */
 function readNewLines(filePath: string, manager: AgentManager): void {
   const agentId = path.basename(filePath, ".jsonl");
-  const agent = manager.getOrCreate(agentId);
+  const project = path.basename(path.dirname(filePath));
+  const agent = manager.getOrCreate(agentId, project);
 
   let stat: fs.Stats;
   try {
@@ -63,10 +64,25 @@ export function startWatching(
   watchPath: string,
   manager: AgentManager,
 ): ReturnType<typeof chokidar.watch> {
-  const watcher = chokidar.watch(`${watchPath}/**/*.jsonl`, {
+  // Windows 백슬래시 → 슬래시로 정규화 (chokidar glob 호환)
+  const normalizedPath = watchPath.replace(/\\/g, "/");
+
+  const watcher = chokidar.watch(normalizedPath, {
     persistent: true,
     ignoreInitial: false,
+    // .jsonl 파일만 처리, 나머지는 무시
+    ignored: (filePath: string) => {
+      const normalized = filePath.replace(/\\/g, "/");
+      // 디렉토리는 감시 대상 유지
+      try {
+        if (fs.statSync(filePath).isDirectory()) return false;
+      } catch {
+        return false;
+      }
+      return !normalized.endsWith(".jsonl");
+    },
     awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 50 },
+    depth: 99,
   });
 
   watcher.on("add", (filePath) => {

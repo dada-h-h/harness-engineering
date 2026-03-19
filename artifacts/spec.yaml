@@ -1,0 +1,105 @@
+version: 1
+
+scenarios:
+  - id: "PIXOFF-001"
+    name: "WebSocket 연결 성공 — 에이전트 캐릭터 등장"
+    given: "WebSocket 서버(ws://localhost:3001)가 실행 중이고 /pixel-office 페이지가 열린 상태"
+    when: "WebSocket 연결이 확립되고 서버가 에이전트 목록을 전송한다"
+    then: "상태 배지에 '연결됨'이 표시되고 에이전트 수만큼 캐릭터가 캔버스에 나타난다"
+    examples:
+      - input: { agentCount: 1, agents: ["agent-1"] }
+        expect: { statusBadge: "연결됨", characterCount: 1 }
+      - input: { agentCount: 3, agents: ["agent-1", "agent-2", "agent-3"] }
+        expect: { statusBadge: "연결됨", characterCount: 3 }
+
+  - id: "PIXOFF-002"
+    name: "WebSocket 서버 미실행 — 상태 배지 오프라인 표시"
+    given: "WebSocket 서버가 실행 중이 아닌 상태에서 /pixel-office 페이지가 열린 상태"
+    when: "페이지가 렌더링된다"
+    then: "오피스 캔버스가 표시되고 상태 배지에 '서버 연결 끊김'이 표시되며 캐릭터는 0개이다"
+    examples:
+      - input: { serverRunning: false }
+        expect: { canvasVisible: true, statusBadge: "서버 연결 끊김", characterCount: 0 }
+
+  - id: "PIXOFF-003"
+    name: "WebSocket 재연결 — 상태 배지 업데이트"
+    given: "상태 배지에 '서버 연결 끊김'이 표시된 /pixel-office 페이지"
+    when: "WebSocket 서버가 재시작되어 자동 재연결에 성공한다"
+    then: "상태 배지가 '연결됨'으로 변경된다"
+    examples:
+      - input: { reconnected: true, agentCount: 1 }
+        expect: { statusBadge: "연결됨", characterCount: 1 }
+
+  - id: "PIXOFF-004"
+    name: "에이전트 상태 변화 — working 애니메이션 전환"
+    given: "WebSocket이 연결된 상태에서 캔버스에 캐릭터 'agent-1'이 idle로 표시된 상태"
+    when: "서버가 agent-1의 상태를 'working'으로 전송한다"
+    then: "agent-1 캐릭터에 data-state='working' 속성이 설정된다"
+    examples:
+      - input: { agentId: "agent-1", status: "working" }
+        expect: { agentState: "working" }
+
+  - id: "PIXOFF-005"
+    name: "에이전트 상태 변화 — thinking 애니메이션 전환"
+    given: "WebSocket이 연결된 상태에서 캔버스에 캐릭터 'agent-1'이 표시된 상태"
+    when: "서버가 agent-1의 상태를 'thinking'으로 전송한다"
+    then: "agent-1 캐릭터에 data-state='thinking' 속성이 설정된다"
+    examples:
+      - input: { agentId: "agent-1", status: "thinking" }
+        expect: { agentState: "thinking" }
+
+  - id: "PIXOFF-006"
+    name: "에이전트 상태 변화 — idle 애니메이션 전환"
+    given: "WebSocket이 연결된 상태에서 캔버스에 캐릭터 'agent-1'이 working으로 표시된 상태"
+    when: "서버가 agent-1의 상태를 'idle'로 전송한다"
+    then: "agent-1 캐릭터에 data-state='idle' 속성이 설정된다"
+    examples:
+      - input: { agentId: "agent-1", status: "idle" }
+        expect: { agentState: "idle" }
+
+  - id: "PIXOFF-007"
+    name: "에이전트 상태 변화 — done 페이드 아웃"
+    given: "WebSocket이 연결된 상태에서 캔버스에 캐릭터 'agent-1'이 표시된 상태"
+    when: "서버가 agent-1의 상태를 'done'으로 전송한다"
+    then: "agent-1 캐릭터가 캔버스에서 사라진다"
+    examples:
+      - input: { agentId: "agent-1", status: "done" }
+        expect: { characterCount: 0 }
+
+  - id: "PIXOFF-008"
+    name: "레이아웃 에디터 — 가구 배치 저장"
+    given: "레이아웃 에디터가 열린 상태에서 가구 2개가 배치된 오피스 캔버스"
+    when: "'레이아웃 저장' 버튼을 클릭한다"
+    then: "'저장됨' 토스트 메시지가 표시되고 localStorage에 레이아웃이 저장된다"
+    examples:
+      - input: { furnitureCount: 2, action: "save" }
+        expect: { toastMessage: "저장됨", localStorageKey: "pixel-office-layout", saved: true }
+
+  - id: "PIXOFF-009"
+    name: "페이지 재로드 — 레이아웃 복원"
+    given: "localStorage에 가구 2개가 배치된 pixel-office-layout 데이터가 저장된 상태"
+    when: "/pixel-office 페이지를 재로드한다"
+    then: "이전에 저장한 가구 2개가 동일한 위치에 표시된다"
+    examples:
+      - input: { localStorageLayout: "2-furniture", reload: true }
+        expect: { furnitureCount: 2 }
+      - input: { localStorageLayout: null, reload: true }
+        expect: { furnitureCount: "default" }
+
+  - id: "PIXOFF-010"
+    name: "프로젝트 필터 — 특정 프로젝트 선택"
+    given: "2개 프로젝트(proj-a, proj-b)에 에이전트가 각 1명씩 있는 상태"
+    when: "사이드바에서 proj-a를 클릭한다"
+    then: "proj-a의 에이전트만 캔버스에 표시되고 사이드바에서 proj-a가 활성화된다"
+    examples:
+      - input: { projects: ["proj-a", "proj-b"], select: "proj-a" }
+        expect: { characterCount: 1, activeFilter: "proj-a" }
+
+  - id: "PIXOFF-011"
+    name: "프로젝트 필터 — 전체 선택"
+    given: "proj-a 필터가 선택된 상태"
+    when: "사이드바에서 '전체'를 클릭한다"
+    then: "모든 프로젝트의 에이전트가 캔버스에 표시된다"
+    examples:
+      - input: { activeFilter: "proj-a", action: "selectAll" }
+        expect: { characterCount: 2, activeFilter: null }
